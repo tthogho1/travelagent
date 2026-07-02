@@ -10,41 +10,9 @@ Run:
 """
 
 from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
 
-
-@tool
-def search_flights(origin: str, destination: str, date: str) -> str:
-    """Search for available flights between two cities.
-
-    Args:
-        origin: Departure city, e.g. "Tokyo".
-        destination: Arrival city, e.g. "Osaka".
-        date: Travel date in YYYY-MM-DD format.
-    """
-    # Mocked data — replace with a real flights API call.
-    return (
-        f"2 flights found from {origin} to {destination} on {date}: "
-        f"ANA 123 departs 08:00 ($120), JAL 456 departs 14:30 ($95)."
-    )
-
-
-@tool
-def search_hotels(city: str, checkin: str, checkout: str) -> str:
-    """Search for available hotels in a city for a date range.
-
-    Args:
-        city: City to search in, e.g. "Osaka".
-        checkin: Check-in date in YYYY-MM-DD format.
-        checkout: Check-out date in YYYY-MM-DD format.
-    """
-    # Mocked data — replace with a real hotels API call.
-    return (
-        f"2 hotels found in {city} from {checkin} to {checkout}: "
-        f"Hotel Granvia ($150/night), Osaka Central Hotel ($90/night)."
-    )
-
+from agents import search_flights, search_hotels
 
 model = ChatOpenAI(model="gpt-4o", max_tokens=2000)
 

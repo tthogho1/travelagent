@@ -3,16 +3,22 @@ Minimal AI travel-planning agent sample using LangGraph + OpenAI.
 
 Setup:
     pip install -r requirements.txt
-    setx OPENAI_API_KEY "your-api-key"
+    cp .env.example .env   # then fill in your API keys
 
 Run:
     python travel_agent.py
 """
 
-from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
+from dotenv import load_dotenv
 
-from agents import search_flights, search_hotels
+# Load environment variables from a local .env file before anything below
+# reads OPENAI_API_KEY / DUFFEL_API_KEY.
+load_dotenv()
+
+from langchain_openai import ChatOpenAI  # noqa: E402
+from langgraph.prebuilt import create_react_agent  # noqa: E402
+
+from agents import search_flights, search_hotels  # noqa: E402
 
 model = ChatOpenAI(model="gpt-4o", max_tokens=2000)
 

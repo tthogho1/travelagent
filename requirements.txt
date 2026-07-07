@@ -1,3 +1,4 @@
+langchain>=1.0
 langgraph
 langchain-openai
 requests

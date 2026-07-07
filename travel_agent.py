@@ -15,20 +15,27 @@ from dotenv import load_dotenv
 # reads OPENAI_API_KEY / DUFFEL_API_KEY.
 load_dotenv()
 
+from langchain.agents import create_agent  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402
-from langgraph.prebuilt import create_react_agent  # noqa: E402
 
-from agents import search_flights, search_hotels  # noqa: E402
+from agents import (  # noqa: E402
+    geocode_location,
+    search_cities,
+    search_flights,
+    search_hotels,
+)
 
 model = ChatOpenAI(model="gpt-4o", max_tokens=2000)
 
-agent = create_react_agent(
+agent = create_agent(
     model,
-    tools=[search_flights, search_hotels],
-    prompt=(
-        "You are a helpful travel-planning assistant. Use the flight and "
-        "hotel search tools to help the user plan their trip, then summarize "
-        "the best options."
+    tools=[search_cities, geocode_location, search_flights, search_hotels],
+    system_prompt=(
+        "You are a helpful travel-planning assistant. Use the available tools "
+        "to help the user plan their trip: search_cities to discover "
+        "destinations, geocode_location to resolve landmarks/cities to "
+        "coordinates, and the flight and hotel search tools to find options. "
+        "Then summarize the best options."
     ),
 )
 

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Travel Planning Agent</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: #0f172a; color: #e2e8f0;
+    display: flex; flex-direction: column; min-height: 100vh;
+  }
+  header {
+    padding: 20px 24px; border-bottom: 1px solid #1e293b;
+    background: #111827;
+  }
+  header h1 { margin: 0; font-size: 18px; }
+  header p { margin: 4px 0 0; font-size: 13px; color: #94a3b8; }
+  main {
+    flex: 1; width: 100%; max-width: 820px; margin: 0 auto;
+    padding: 20px 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .msg { padding: 12px 16px; border-radius: 12px; white-space: pre-wrap;
+         line-height: 1.5; font-size: 14px; }
+  .user { background: #2563eb; color: #fff; align-self: flex-end;
+          max-width: 85%; }
+  .bot  { background: #1e293b; align-self: flex-start; max-width: 95%; }
+  .bot.pending { color: #94a3b8; font-style: italic; }
+  form {
+    position: sticky; bottom: 0; width: 100%; max-width: 820px;
+    margin: 0 auto; padding: 12px 16px; display: flex; gap: 8px;
+    background: #0f172a; border-top: 1px solid #1e293b;
+  }
+  textarea {
+    flex: 1; resize: none; height: 46px; padding: 12px; border-radius: 10px;
+    border: 1px solid #334155; background: #1e293b; color: #e2e8f0;
+    font-size: 14px; font-family: inherit;
+  }
+  button {
+    padding: 0 20px; border: 0; border-radius: 10px; background: #2563eb;
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .hint { color: #64748b; font-size: 12px; text-align: center; padding: 4px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>✈️ Travel Planning Agent</h1>
+    <p>Ask about destinations, flights, or trip ideas.</p>
+  </header>
+  <main id="log">
+    <div class="msg bot">Hi! Where would you like to go? For example:
+"Plan a trip from Tokyo to Osaka on 2026-08-10."</div>
+  </main>
+  <form id="form">
+    <textarea id="input" placeholder="Type your request and press Enter..."
+      autocomplete="off"></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+  <div class="hint">Enter to send · Shift+Enter for a new line</div>
+
+<script>
+  const log = document.getElementById("log");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+
+  function addMsg(text, cls) {
+    const el = document.createElement("div");
+    el.className = "msg " + cls;
+    el.textContent = text;
+    log.appendChild(el);
+    el.scrollIntoView({ behavior: "smooth", block: "end" });
+    return el;
+  }
+
+  async function submit() {
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = "";
+    send.disabled = true;
+    addMsg(message, "user");
+    const pending = addMsg("Thinking…", "bot pending");
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json();
+      pending.remove();
+      addMsg(data.reply || "(no response)", "bot");
+    } catch (err) {
+      pending.remove();
+      addMsg("Network error: " + err, "bot");
+    } finally {
+      send.disabled = false;
+      input.focus();
+    }
+  }
+
+  form.addEventListener("submit", (e) => { e.preventDefault(); submit(); });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+  });
+  input.focus();
+</script>
+</body>
+</html>

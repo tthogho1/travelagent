@@ -17,6 +17,7 @@ load_dotenv()
 
 from langchain.agents import create_agent  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 
 from agent_logging import AgentLogger, configure_logging, logger  # noqa: E402
 from agents import (  # noqa: E402
@@ -27,6 +28,11 @@ from agents import (  # noqa: E402
 )
 
 configure_logging()
+
+# Persists conversation history per session so multi-turn chats keep context.
+# In-memory: survives while the server runs, cleared on restart. Swap for a
+# SqliteSaver (pip install langgraph-checkpoint-sqlite) to persist to disk.
+checkpointer = InMemorySaver()
 
 model = ChatOpenAI(model="gpt-4o", max_tokens=2000)
 
@@ -40,15 +46,23 @@ agent = create_agent(
         "coordinates, and the flight search tool to find options. "
         "Then summarize the best options."
     ),
+    checkpointer=checkpointer,
 )
 
 
-def ask(user_message: str) -> str:
-    """Run the agent and return the assistant's final reply as text."""
-    logger.info("USER ▶ %s", user_message)
+def ask(user_message: str, session_id: str = "default") -> str:
+    """Run the agent and return the assistant's final reply as text.
+
+    Conversation history is kept per ``session_id`` (LangGraph thread), so
+    follow-up messages in the same session retain earlier context.
+    """
+    logger.info("[%s] USER ▶ %s", session_id, user_message)
     result = agent.invoke(
         {"messages": [{"role": "user", "content": user_message}]},
-        config={"callbacks": [AgentLogger()]},
+        config={
+            "configurable": {"thread_id": session_id},
+            "callbacks": [AgentLogger()],
+        },
     )
     final = result["messages"][-1].content
     # Some models return content as a list of parts; join to plain text.

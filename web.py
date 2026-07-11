@@ -12,9 +12,10 @@ Or with uvicorn directly:
     uvicorn web:app --reload
 """
 
+import uuid
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import Cookie, FastAPI, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -23,6 +24,7 @@ from travel_agent import ask
 app = FastAPI(title="Travel Planning Agent")
 
 INDEX_HTML = Path(__file__).parent / "templates" / "index.html"
+SESSION_COOKIE = "session_id"
 
 
 class ChatRequest(BaseModel):
@@ -34,15 +36,34 @@ class ChatResponse(BaseModel):
 
 
 @app.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+def chat(
+    req: ChatRequest,
+    response: Response,
+    session_id: str | None = Cookie(default=None),
+) -> ChatResponse:
+    # Give each browser a stable session id so the agent recalls the
+    # conversation history for follow-up questions.
+    if not session_id:
+        session_id = uuid.uuid4().hex
+        response.set_cookie(
+            SESSION_COOKIE, session_id, httponly=True, samesite="lax"
+        )
+
     message = (req.message or "").strip()
     if not message:
         return ChatResponse(reply="Please enter a request.")
     try:
-        reply = ask(message)
+        reply = ask(message, session_id=session_id)
     except Exception as exc:  # noqa: BLE001 — surface errors to the UI
         reply = f"Error: {exc}"
     return ChatResponse(reply=reply)
+
+
+@app.post("/reset")
+def reset(response: Response) -> dict:
+    """Start a new conversation by clearing the session cookie."""
+    response.delete_cookie(SESSION_COOKIE)
+    return {"ok": True}
 
 
 @app.get("/", response_class=FileResponse)

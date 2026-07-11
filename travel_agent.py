@@ -34,7 +34,21 @@ configure_logging()
 # SqliteSaver (pip install langgraph-checkpoint-sqlite) to persist to disk.
 checkpointer = InMemorySaver()
 
-model = ChatOpenAI(model="gpt-4o", max_tokens=2000)
+import os  # noqa: E402
+
+# Agent model, overridable via .env. Reasoning (o-series) models are the most
+# capable but reserve tokens for hidden reasoning and reject the older
+# max_tokens / custom-temperature params, so configure them differently.
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "o3")
+
+
+def _build_model(name: str) -> ChatOpenAI:
+    if name.startswith("o"):  # o1 / o3 / o4-... reasoning models
+        return ChatOpenAI(model=name)
+    return ChatOpenAI(model=name, max_tokens=2000)
+
+
+model = _build_model(OPENAI_MODEL)
 
 agent = create_agent(
     model,

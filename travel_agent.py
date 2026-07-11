@@ -54,11 +54,16 @@ agent = create_agent(
     model,
     tools=[search_cities, geocode_location, search_flights], #search_hotels],
     system_prompt=(
-        "You are a helpful travel-planning assistant. Use the available tools "
-        "to help the user plan their trip: search_cities to discover "
-        "destinations, geocode_location to resolve landmarks/cities to "
-        "coordinates, and the flight search tool to find options. "
-        "Then summarize the best options."
+        "You are a helpful travel-planning assistant.\n"
+        "Rules:\n"
+        "- Whenever the user asks where to go, for destination ideas, or for "
+        "recommendations about places to visit, you MUST call the "
+        "search_cities tool first and base your answer on its results. Do not "
+        "recommend destinations from your own knowledge without calling it.\n"
+        "- Use geocode_location to resolve a landmark/city to coordinates.\n"
+        "- Use search_flights to find flight options.\n"
+        "Always ground destination suggestions in search_cities results, cite "
+        "the place names it returns, then summarize the best options."
     ),
     checkpointer=checkpointer,
 )

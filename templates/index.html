@@ -4,6 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Travel Planning Agent</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -23,6 +25,23 @@
     border: 1px solid #334155; border-radius: 8px; background: #1e293b;
     color: #e2e8f0; cursor: pointer;
   }
+  /* Landmark search bar + map, directly under the header. */
+  #mapbar {
+    display: flex; gap: 8px; padding: 12px 16px; background: #111827;
+    border-bottom: 1px solid #1e293b; align-items: center;
+  }
+  #landmark {
+    flex: 1; max-width: 420px; padding: 9px 12px; border-radius: 8px;
+    border: 1px solid #334155; background: #1e293b; color: #e2e8f0;
+    font-size: 14px;
+  }
+  #go {
+    padding: 9px 18px; border: 0; border-radius: 8px; background: #16a34a;
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  #go:disabled { opacity: .5; cursor: default; }
+  #place { font-size: 12px; color: #94a3b8; }
+  #map { height: 300px; width: 100%; background: #1e293b; }
   main {
     flex: 1; width: 100%; max-width: 820px; margin: 0 auto;
     padding: 20px 16px; display: flex; flex-direction: column; gap: 14px;
@@ -57,6 +76,15 @@
     <p>Ask about destinations, flights, or trip ideas.</p>
     <button id="reset" type="button">New conversation</button>
   </header>
+
+  <div id="mapbar">
+    <input id="landmark" type="text" placeholder="Landmark or city (e.g. 東京タワー)"
+      autocomplete="off" />
+    <button id="go" type="button">Show on map</button>
+    <span id="place"></span>
+  </div>
+  <div id="map"></div>
+
   <main id="log">
     <div class="msg bot">Hi! Where would you like to go? For example:
 "Plan a trip from Tokyo to Osaka on 2026-08-10."</div>
@@ -69,6 +97,49 @@
   <div class="hint">Enter to send · Shift+Enter for a new line</div>
 
 <script>
+  // ── Map: pan to the landmark the user types ──────────────────────────────
+  const map = L.map("map").setView([35.6812, 139.7671], 11);  // Tokyo Station
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors",
+    maxZoom: 19,
+  }).addTo(map);
+  let marker = null;
+
+  const landmark = document.getElementById("landmark");
+  const go = document.getElementById("go");
+  const place = document.getElementById("place");
+
+  async function showOnMap() {
+    const q = landmark.value.trim();
+    if (!q) return;
+    go.disabled = true;
+    place.textContent = "Searching…";
+    try {
+      const res = await fetch("/geocode?q=" + encodeURIComponent(q));
+      const data = await res.json();
+      if (data.error) {
+        place.textContent = data.error;
+        return;
+      }
+      const latlng = [data.lat, data.lon];
+      map.flyTo(latlng, 15);
+      if (marker) marker.remove();
+      marker = L.marker(latlng).addTo(map)
+        .bindPopup(data.display_name).openPopup();
+      place.textContent = data.display_name;
+    } catch (err) {
+      place.textContent = "Error: " + err;
+    } finally {
+      go.disabled = false;
+    }
+  }
+
+  go.addEventListener("click", showOnMap);
+  landmark.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); showOnMap(); }
+  });
+
+  // ── Chat ────────────────────────────────────────────────────────────────
   const log = document.getElementById("log");
   const form = document.getElementById("form");
   const input = document.getElementById("input");

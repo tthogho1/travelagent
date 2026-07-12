@@ -12,6 +12,7 @@ Or with uvicorn directly:
     uvicorn web:app --reload
 """
 
+import json
 import uuid
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from fastapi import Cookie, FastAPI, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from agents import geocode_location
 from travel_agent import ask
 
 app = FastAPI(title="Travel Planning Agent")
@@ -64,6 +66,34 @@ def reset(response: Response) -> dict:
     """Start a new conversation by clearing the session cookie."""
     response.delete_cookie(SESSION_COOKIE)
     return {"ok": True}
+
+
+@app.get("/geocode")
+def geocode(q: str) -> dict:
+    """Resolve a landmark/city name to coordinates for the map.
+
+    Proxies OpenStreetMap Nominatim through the existing geocode_location
+    tool, which sets the User-Agent that Nominatim's usage policy requires
+    (a browser cannot set it, so we must not call Nominatim from the client).
+    """
+    q = (q or "").strip()
+    if not q:
+        return {"error": "empty query"}
+
+    payload = json.loads(geocode_location.invoke({"query": q}))
+    if payload.get("error"):
+        return {"error": payload["error"]}
+
+    results = payload.get("results", [])
+    if not results:
+        return {"error": f"'{q}' not found"}
+
+    best = results[0]
+    return {
+        "lat": float(best["lat"]),
+        "lon": float(best["lon"]),
+        "display_name": best.get("display_name", q),
+    }
 
 
 @app.get("/", response_class=FileResponse)

@@ -5,3 +5,5 @@ requests
 python-dotenv
 databricks-ai-search
 openai
+fastapi
+uvicorn

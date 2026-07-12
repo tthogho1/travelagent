@@ -25,7 +25,8 @@ NUM_RESULTS = int(os.environ.get("CITIES_NUM_RESULTS", "3"))
 
 @tool
 def search_cities(query: str) -> str:
-    """Search for cities/destinations matching a free-text query.
+    """Find travel destinations for a query. USE THIS whenever the user asks
+    where to go, for place/city ideas, or for destination recommendations.
 
     Runs a hybrid similarity search over the Wikivoyage travel index and
     returns a short LLM-written summary alongside the top matching passages.

@@ -17,7 +17,9 @@ load_dotenv()
 
 from langchain.agents import create_agent  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 
+from agent_logging import AgentLogger, configure_logging, logger  # noqa: E402
 from agents import (  # noqa: E402
     geocode_location,
     search_cities,
@@ -25,24 +27,75 @@ from agents import (  # noqa: E402
     search_hotels,
 )
 
-model = ChatOpenAI(model="gpt-4o", max_tokens=2000)
+configure_logging()
+
+# Persists conversation history per session so multi-turn chats keep context.
+# In-memory: survives while the server runs, cleared on restart. Swap for a
+# SqliteSaver (pip install langgraph-checkpoint-sqlite) to persist to disk.
+checkpointer = InMemorySaver()
+
+import os  # noqa: E402
+
+# Agent model, overridable via .env. Reasoning (o-series) models are the most
+# capable but reserve tokens for hidden reasoning and reject the older
+# max_tokens / custom-temperature params, so configure them differently.
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "o3")
+
+
+def _build_model(name: str) -> ChatOpenAI:
+    if name.startswith("o"):  # o1 / o3 / o4-... reasoning models
+        return ChatOpenAI(model=name)
+    return ChatOpenAI(model=name, max_tokens=2000)
+
+
+model = _build_model(OPENAI_MODEL)
 
 agent = create_agent(
     model,
-    tools=[search_cities, geocode_location, search_flights, search_hotels],
+    tools=[search_cities, geocode_location, search_flights], #search_hotels],
     system_prompt=(
-        "You are a helpful travel-planning assistant. Use the available tools "
-        "to help the user plan their trip: search_cities to discover "
-        "destinations, geocode_location to resolve landmarks/cities to "
-        "coordinates, and the flight and hotel search tools to find options. "
-        "Then summarize the best options."
+        "You are a helpful travel-planning assistant.\n"
+        "Rules:\n"
+        "- Whenever the user asks where to go, for destination ideas, or for "
+        "recommendations about places to visit, you MUST call the "
+        "search_cities tool first and base your answer on its results. Do not "
+        "recommend destinations from your own knowledge without calling it.\n"
+        "- Use geocode_location to resolve a landmark/city to coordinates.\n"
+        "- Use search_flights to find flight options.\n"
+        "Always ground destination suggestions in search_cities results, cite "
+        "the place names it returns, then summarize the best options."
     ),
+    checkpointer=checkpointer,
 )
 
 
+def ask(user_message: str, session_id: str = "default") -> str:
+    """Run the agent and return the assistant's final reply as text.
+
+    Conversation history is kept per ``session_id`` (LangGraph thread), so
+    follow-up messages in the same session retain earlier context.
+    """
+    logger.info("[%s] USER ▶ %s", session_id, user_message)
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": user_message}]},
+        config={
+            "configurable": {"thread_id": session_id},
+            "callbacks": [AgentLogger()],
+        },
+    )
+    final = result["messages"][-1].content
+    # Some models return content as a list of parts; join to plain text.
+    if isinstance(final, list):
+        final = "".join(
+            part.get("text", "") if isinstance(part, dict) else str(part)
+            for part in final
+        )
+    logger.info("AGENT ◀ %s", final)
+    return final
+
+
 def run(user_message: str) -> None:
-    result = agent.invoke({"messages": [{"role": "user", "content": user_message}]})
-    result["messages"][-1].pretty_print()
+    print(ask(user_message))
 
 
 if __name__ == "__main__":

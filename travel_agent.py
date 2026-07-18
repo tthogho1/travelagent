@@ -24,7 +24,10 @@ from agents import (  # noqa: E402
     geocode_location,
     search_cities,
     search_flights,
-    search_hotels,
+    search_hotels_by_city,
+    search_hotels_by_geolocation,
+    search_hotels_by_hotel_ids,
+    search_hotels_by_location,
 )
 
 configure_logging()
@@ -52,7 +55,15 @@ model = _build_model(OPENAI_MODEL)
 
 agent = create_agent(
     model,
-    tools=[search_cities, geocode_location, search_flights], #search_hotels],
+    tools=[
+        search_cities,
+        geocode_location,
+        search_flights,
+        search_hotels_by_city,
+        search_hotels_by_geolocation,
+        search_hotels_by_location,
+        search_hotels_by_hotel_ids,
+    ],
     system_prompt=(
         "You are a helpful travel-planning assistant.\n"
         "Rules:\n"

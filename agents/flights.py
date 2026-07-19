@@ -1,6 +1,7 @@
 """Flight search tool backed by the Duffel API."""
 
 import os
+from datetime import date as _date
 
 import requests
 from langchain_core.tools import tool
@@ -17,6 +18,22 @@ def search_flights(origin: str, destination: str, date: str) -> str:
         destination: Arrival airport/city IATA code, e.g. "ITM" or "OSA".
         date: Travel date in YYYY-MM-DD format.
     """
+    # Models have no clock and will happily invent a stale date from their
+    # training data; reject past dates so the agent must correct itself.
+    today = _date.today()
+    try:
+        travel_date = _date.fromisoformat(date)
+    except ValueError:
+        return (
+            f"Invalid date '{date}'. Use YYYY-MM-DD format. "
+            f"Today is {today.isoformat()}."
+        )
+    if travel_date < today:
+        return (
+            f"Date {date} is in the past. Today is {today.isoformat()}. "
+            "Ask the user for a future travel date instead of guessing."
+        )
+
     api_key = os.environ.get("DUFFEL_API_KEY")
     if not api_key:
         return "DUFFEL_API_KEY is not set; cannot search flights."

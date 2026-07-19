@@ -4,6 +4,8 @@ The Duffel HTTP call is mocked, so these run offline and need no API key.
 Run with:  pytest tests/test_flights.py -v
 """
 
+from datetime import date
+
 import requests
 
 from agents.flights import search_flights
@@ -29,6 +31,30 @@ class _FakeResponse:
 
     def json(self):
         return self._payload
+
+
+def test_rejects_past_date(monkeypatch):
+    monkeypatch.setenv("DUFFEL_API_KEY", "duffel_test_dummy")
+    result = _invoke(date="2020-01-01")
+    assert "in the past" in result
+    # Tells the model today's date so it can correct itself.
+    assert date.today().isoformat() in result
+
+
+def test_rejects_malformed_date(monkeypatch):
+    monkeypatch.setenv("DUFFEL_API_KEY", "duffel_test_dummy")
+    result = _invoke(date="next friday")
+    assert "Invalid date" in result
+
+
+def test_today_is_allowed(monkeypatch):
+    monkeypatch.setenv("DUFFEL_API_KEY", "duffel_test_dummy")
+    monkeypatch.setattr(
+        "agents.flights.requests.post",
+        lambda *a, **k: _FakeResponse({"data": {"offers": []}}),
+    )
+    result = _invoke(date=date.today().isoformat())
+    assert "in the past" not in result
 
 
 def test_missing_api_key(monkeypatch):

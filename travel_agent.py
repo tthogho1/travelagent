@@ -38,6 +38,7 @@ configure_logging()
 checkpointer = InMemorySaver()
 
 import os  # noqa: E402
+from datetime import date  # noqa: E402
 
 # Agent model, overridable via .env. Reasoning (o-series) models are the most
 # capable but reserve tokens for hidden reasoning and reject the older
@@ -46,7 +47,7 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "o3")
 
 
 def _build_model(name: str) -> ChatOpenAI:
-    if name.startswith("o"):  # o1 / o3 / o4-... reasoning models
+    if name.startswith("o"):  # o1 /  / o4-... reasoning models
         return ChatOpenAI(model=name)
     return ChatOpenAI(model=name, max_tokens=2000)
 
@@ -66,6 +67,7 @@ agent = create_agent(
     ],
     system_prompt=(
         "You are a helpful travel-planning assistant.\n"
+        f"Today's date is {date.today().isoformat()}.\n"
         "Rules:\n"
         "- Whenever the user asks where to go, for destination ideas, or for "
         "recommendations about places to visit, you MUST call the "
@@ -73,6 +75,11 @@ agent = create_agent(
         "recommend destinations from your own knowledge without calling it.\n"
         "- Use geocode_location to resolve a landmark/city to coordinates.\n"
         "- Use search_flights to find flight options.\n"
+        "- NEVER search for a date in the past. All travel dates must be after "
+        "today's date above. Resolve relative dates ('next month', 'this "
+        "weekend') against today's date.\n"
+        "- If the user does not give a travel date, ASK them for one instead "
+        "of guessing. Do not invent a date from your training data.\n"
         "Always ground destination suggestions in search_cities results, cite "
         "the place names it returns, then summarize the best options."
     ),

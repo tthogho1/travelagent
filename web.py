@@ -13,6 +13,7 @@ Or with uvicorn directly:
 """
 
 import json
+import os
 import uuid
 from pathlib import Path
 
@@ -104,4 +105,10 @@ def index() -> FileResponse:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Defaults suit local dev; containers (e.g. Hugging Face Spaces) override
+    # with HOST=0.0.0.0 and PORT=7860.
+    uvicorn.run(
+        app,
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "8000")),
+    )
